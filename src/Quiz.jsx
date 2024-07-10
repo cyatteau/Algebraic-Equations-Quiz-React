@@ -16,32 +16,65 @@ function Equation({ equation, options, onAnswer }) {
   );
 }
 
+function getNextQuestion(currentDifficulty, wasCorrect, askedQuestions) {
+  const difficultyLevels = ["easy", "medium", "hard"];
+  let currentIndex = difficultyLevels.indexOf(currentDifficulty);
+
+  if (wasCorrect) {
+    currentIndex = Math.min(currentIndex + 1, difficultyLevels.length - 1); // Increase difficulty up to hard
+  } else {
+    currentIndex = Math.max(currentIndex - 1, 0); // Decrease difficulty down to easy
+  }
+
+  const nextDifficulty = difficultyLevels[currentIndex];
+
+  const filteredQuestions = allQuestions.filter(
+    (q) => q.difficulty === nextDifficulty && !askedQuestions.includes(q.id)
+  );
+
+  return filteredQuestions[
+    Math.floor(Math.random() * filteredQuestions.length)
+  ];
+}
+
 export default function Quiz() {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentQuestion, setCurrentQuestion] = useState(null);
   const [answers, setAnswers] = useState([]);
   const [quizComplete, setQuizComplete] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState("");
-  const [filteredQuestions, setFilteredQuestions] = useState([]);
+  const [questionsAnswered, setQuestionsAnswered] = useState(0);
+  const [askedQuestions, setAskedQuestions] = useState([]);
 
   const startQuiz = (difficulty) => {
     setSelectedDifficulty(difficulty);
-    const filtered = allQuestions
-      .filter((q) => q.difficulty === difficulty)
-      .slice(0, 3);
-    setFilteredQuestions(filtered);
-    setCurrentQuestionIndex(0);
+    const initialQuestions = allQuestions.filter(
+      (q) => q.difficulty === difficulty
+    );
+    const initialQuestion = initialQuestions[
+      Math.floor(Math.random() * initialQuestions.length)
+    ];
+    setCurrentQuestion(initialQuestion);
+    setAskedQuestions([initialQuestion.id]);
     setAnswers([]);
+    setQuestionsAnswered(0);
     setQuizComplete(false);
   };
 
   const handleAnswer = (answer) => {
-    const isCorrect =
-      answer === filteredQuestions[currentQuestionIndex].correct;
+    const isCorrect = answer === currentQuestion.correct;
     setAnswers([...answers, isCorrect]);
 
-    const nextQuestionIndex = currentQuestionIndex + 1;
-    if (nextQuestionIndex < filteredQuestions.length) {
-      setCurrentQuestionIndex(nextQuestionIndex);
+    const nextQuestionIndex = questionsAnswered + 1;
+    setQuestionsAnswered(nextQuestionIndex);
+
+    if (nextQuestionIndex < 3) {
+      const nextQuestion = getNextQuestion(
+        selectedDifficulty,
+        isCorrect,
+        askedQuestions
+      );
+      setCurrentQuestion(nextQuestion);
+      setAskedQuestions([...askedQuestions, nextQuestion.id]);
     } else {
       setQuizComplete(true);
     }
@@ -64,7 +97,7 @@ export default function Quiz() {
       <div>
         <h1>Quiz Complete</h1>
         <p>
-          You answered {correctAnswersCount} out of {filteredQuestions.length}{" "}
+          You answered {correctAnswersCount} out of {questionsAnswered}{" "}
           correctly.
         </p>
         <button onClick={() => setSelectedDifficulty("")}>Start Over</button>
@@ -72,7 +105,10 @@ export default function Quiz() {
     );
   }
 
-  const currentQuestion = filteredQuestions[currentQuestionIndex];
+  if (!currentQuestion) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <Equation
       equation={currentQuestion.equation}
